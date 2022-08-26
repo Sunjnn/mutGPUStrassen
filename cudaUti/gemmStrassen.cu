@@ -284,6 +284,10 @@ void gemmstrassen(float *C, float *A, float *B, int m, int k, int n, int ldA, in
     float *C_11, *C_12, *C_21, *C_22;
     getSubmatrixPointer(C, mDiv2, nDiv2, ldC, C_11, C_12, C_21, C_22);
 
+    for (int i = 0; i < 7; ++i) {
+        cudaStreamSynchronize(streamArray[i]);
+    }
+
 #pragma omp parallel
     {
 #pragma omp sections

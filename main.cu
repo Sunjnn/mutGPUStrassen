@@ -4,12 +4,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
+#include <functional>
 
 #include "main.cuh"
 #include "cudaUti.cuh"
 #include "gemmStrassen.cuh"
 #include "matrixUti.hxx"
 #include "blockMatrix.hxx"
+#include "threadPool.cuh"
 
 
 int main() {
@@ -51,6 +53,21 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
     printf("gemmstrassen time: %f ms\n", time);
+    test(C, CTest, M, N);
+
+    memset(C, 0, sizeof(float) * M * N);
+    time = 0.0f;
+
+    cudaDeviceSynchronize();
+    cudaEventRecord(start, 0);
+    // threadPool pool(C, A, B, M, K, N, BLOCK_M, BLOCK_K, BLOCK_N);
+    // pool.threadCPU();
+    threadPoolConfig config(C, A, B, M, K, N, BLOCK_M, BLOCK_K, BLOCK_N);
+    threadCPU(&config);
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&time, start, stop);
+    printf("gemmstrassen threadPool time: %f ms\n", time);
     test(C, CTest, M, N);
 
     return 0;

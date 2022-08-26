@@ -1,4 +1,7 @@
 // seperate a matrix.
+
+#ifndef BLOCKMATRIX
+#define BLOCKMATRIX
 class blockMatrix {
 public:
     float **pointers = nullptr;
@@ -8,3 +11,4 @@ public:
     blockMatrix(float *A, int m, int n, int ldA, int blockM, int blockN);
     float *getBlockMatrix(int blockI, int blockJ);
 };
+#endif

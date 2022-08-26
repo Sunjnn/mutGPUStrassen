@@ -5,7 +5,8 @@
 
 void initMatrix(float *A, int M, int N) {
     for (int i = 0; i < M * N; ++i) {
-        A[i] = i;
+        // A[i] = i;
+        A[i] = 1;
     }
 }
 

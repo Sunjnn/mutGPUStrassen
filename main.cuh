@@ -4,18 +4,18 @@
 // Matrix C has the size of M times N.
 #ifndef MATRIX_SIZE
 #define MATRIX_SIZE
-#define M 8192
-#define K 8192
-#define N 8192
+#define M 32768
+#define K M
+#define N M
 #endif
 
 
 // Define sub matrix size.
 #ifndef BLOCK_MATRIX_SIZE
 #define BLOCK_MATRIX_SIZE
-#define BLOCK_M 1024
-#define BLOCK_K 1024
-#define BLOCK_N 1024
+#define BLOCK_M 8192
+#define BLOCK_K BLOCK_M
+#define BLOCK_N BLOCK_M
 #endif
 
 

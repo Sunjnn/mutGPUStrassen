@@ -7,6 +7,7 @@ set(CMAKE_CUDA_COMPILE /usr/local/cuda-11.7/bin/nvcc)
 # add_library(cudaUti cudaUti.cu cudaUti.cuh)
 add_subdirectory(cudaUti)
 add_subdirectory(matrixUti)
+add_subdirectory(threadPool)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -26,12 +27,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 add_executable(${PROJECT_NAME} main.cu)
 
 target_link_libraries(${PROJECT_NAME}
-    PUBLIC cudaUti matrixUti
+    PUBLIC cudaUti matrixUti threadPool
     PRIVATE ${CUBLAS_LIBRARIES}
 )
 
 target_include_directories(${PROJECT_NAME}
-    PUBLIC "${PROJECT_SOURCE_DIR}/cudaUti" "${PROJECT_SOURCE_DIR}/matrixUti"
+    PUBLIC "${PROJECT_SOURCE_DIR}/cudaUti" "${PROJECT_SOURCE_DIR}/matrixUti" "${PROJECT_SOURCE_DIR}/threadPool"
 )
 
 set(CMAKE_CUDA_FLAGS "-G -g -Xcompiler -fopenmp")
