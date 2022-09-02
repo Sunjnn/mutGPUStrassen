@@ -34,7 +34,7 @@ void gemmcublas(float *C, float *A, float *B, int M, int K, int N, cublasHandle_
 
     float alpha = 1.0f, beta = 0.0f;
 
-    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, M, N, N, &alpha, d_A, M, d_B, K, &beta, d_C, M);
+    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, M, N, K, &alpha, d_A, M, d_B, K, &beta, d_C, M);
     cublasStatus = cublasGetMatrixAsync(M, N, sizeof(float), d_C, M, C, M, stream);
     CHECKCUBLAS(cublasStatus);
 
@@ -75,24 +75,11 @@ int getdevicecount() {
 }
 
 // get properties of each GPU: memory.
-float *getdeviceprop(int deviceCount) {
-    if (deviceCount == 0) {
-        printf("There are no avilable device(s) that support CUDA\n");
-        exit(1);
-    }
-    else {
-        printf("Delete %d CUDA Capable device(s)\n", deviceCount);
-    }
+float getdeviceprop(int dev) {
+    float mem;
+    cudaDeviceProp deviceProp;
+    CHECKCUDA(cudaGetDeviceProperties(&deviceProp, dev));
+    mem = deviceProp.totalGlobalMem / 1048576.0f;
 
-    float* memMiBs = (float*)malloc(sizeof(float) * deviceCount);
-
-    for (int dev = 0; dev < deviceCount; ++dev) {
-        //CHECKCUDA(cudaSetDevice(dev));
-        cudaDeviceProp deviceProp;
-        CHECKCUDA(cudaGetDeviceProperties(&deviceProp, dev));
-        //float memMiB = deviceProp.totalGlobalMem / 1048576.0f;
-        memMiBs[dev] = deviceProp.totalGlobalMem / 1048576.0f;
-    }
-
-    return memMiBs;
+    return mem;
 }

@@ -32,4 +32,6 @@ void gemmcublas(float *C, float *A, float *B, int, int, int, cublasHandle_t hand
 
 int getdevicecount();
 
-float *getdeviceprop(int deviceCount);
+// float *getdeviceprop(int deviceCount);
+
+float getdeviceprop(int dev);

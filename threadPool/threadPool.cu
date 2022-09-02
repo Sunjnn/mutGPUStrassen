@@ -1,21 +1,34 @@
+#include <cuda_runtime.h>
 #include <cublas_v2.h>
 
 #include <vector>
 #include <thread>
 #include <functional>
+#include <stdio.h>
 
 #include "gemmStrassen.cuh"
 #include "threadPool.cuh"
 #include "cudaUti.cuh"
+#include "matrixUti.hxx"
 
+threadPoolConfig::threadPoolConfig() {}
 
-threadPoolConfig::threadPoolConfig(float* C, float* A, float* B, int M, int K, int N, int blockM, int blockK, int blockN): m(M), k(K), n(N), blockM(blockM), blockK(blockK), blockN(blockN) {
+threadPoolConfig::threadPoolConfig(float* C, float* A, float* B, int M, int K, int N, int blockM, int blockK, int blockN, std::vector<int> GPUsArray): m(M), k(K), n(N), blockM(blockM), blockK(blockK), blockN(blockN) {
     bmatA = new blockMatrix(A, M, K, M, blockM, blockK);
     bmatB = new blockMatrix(B, K, N, K, blockK, blockN);
     bmatC = new blockMatrix(C, M, N, M, blockM, blockN);
 
     deviceCount = getdevicecount();
-    memMiBs = getdeviceprop(deviceCount);
+    for (int i = 0; i < GPUsArray.size(); ++i) {
+        if (GPUsArray[i] >= deviceCount) {
+            printf("%d GPU does not exist.\n", GPUsArray[i]);
+        }
+
+        memMiBs.push_back(getdeviceprop(GPUsArray[i]));
+        GPUs.push_back(GPUsArray[i]);
+    }
+    deviceCount = GPUsArray.size();
+
     for (int i = 0; i < bmatC->dimM; ++i) {
         for (int j = 0; j < bmatC->dimN; ++j) {
             //int task[2] = { i, j };
@@ -28,13 +41,52 @@ threadPoolConfig::threadPoolConfig(float* C, float* A, float* B, int M, int K, i
 }
 
 void threadGPUSub(threadPoolConfig *config, int start, int stop) {
+    float *CTmp = (float*)malloc(sizeof(float) * config->blockM * config->blockN);
+    cudaStream_t *streamArray = (cudaStream_t*)malloc(sizeof(cudaStream_t) * 3);
+    cublasHandle_t *handleArray = (cublasHandle_t*)malloc(sizeof(cublasHandle_t) * 3);
+    for (int i = 0; i < 3; ++i) {
+        CHECKCUDA(cudaStreamCreate(streamArray + i));
+        CHECKCUBLAS(cublasCreate(handleArray + i));
+        CHECKCUBLAS(cublasSetStream(handleArray[i], streamArray[i]));
+    }
+
+    float *T1 = nullptr;
+    CHECKCUDA(cudaMallocAsync(&T1, sizeof(float) * config->blockM * config->blockM, streamArray[0]));
+    float *T2 = nullptr;
+    CHECKCUDA(cudaMallocAsync(&T2, sizeof(float) * config->blockM * config->blockM, streamArray[1]));
+
+    float *d_A = nullptr;
+    CHECKCUDA(cudaMallocAsync(&d_A, sizeof(float) * config->blockM * config->blockM, streamArray[0]))
+
+    float *d_B = nullptr;
+    CHECKCUDA(cudaMallocAsync(&d_B, sizeof(float) * config->blockM * config->blockM, streamArray[1]));
+
+    float *d_C = nullptr;
+    CHECKCUDA(cudaMallocAsync(&d_C, sizeof(float) * config->blockM * config->blockM, streamArray[2]));
+
     for (int index = start; index < stop; ++index) {
         int i = config->tasks[index][0];
         int j = config->tasks[index][1];
         for (int k = 0; k < config->bmatA->dimN; ++k) {
-            gemmstrassen(config->bmatC->getBlockMatrix(i, j), config->bmatA->getBlockMatrix(i, k), config->bmatB->getBlockMatrix(k, j), config->blockM, config->blockK, config->blockN, config->m, config->k, config->m);
+            // gemmstrassen(config->bmatC->getBlockMatrix(i, j), config->bmatA->getBlockMatrix(i, k), config->bmatB->getBlockMatrix(k, j), config->blockM, config->blockK, config->blockN, config->m, config->k, config->m);
+            // gemmstrassen_v2(config->bmatC->getBlockMatrix(i, j), config->m, config->bmatA->getBlockMatrix(i, k), config->m, config->bmatB->getBlockMatrix(k, j), config->k, config->blockM, config->blockK, config->blockN);
+
+            gemmstrassen_v3(CTmp, config->blockM, config->bmatA->getBlockMatrix(i, k), config->m, config->bmatB->getBlockMatrix(k, j), config->k, config->blockM, streamArray, handleArray, T1, T2, d_A, d_B, d_C);
+            matrixAdd(config->bmatC->getBlockMatrix(i, j), config->bmatC->getBlockMatrix(i, j), CTmp, config->blockM, config->blockN, config->m, config->m, config->blockM);
         }
     }
+    CHECKCUDA(cudaFreeAsync(T1, streamArray[0]));
+    CHECKCUDA(cudaFreeAsync(T2, streamArray[1]));
+    CHECKCUDA(cudaFreeAsync(d_A, streamArray[0]));
+    CHECKCUDA(cudaFreeAsync(d_B, streamArray[1]));
+    CHECKCUDA(cudaFreeAsync(d_C, streamArray[2]));
+    free(CTmp);
+    for (int i = 0; i < 3; ++i) {
+        CHECKCUDA(cudaStreamDestroy(streamArray[i]));
+        CHECKCUBLAS(cublasDestroy(handleArray[i]));
+    }
+    free(streamArray);
+    free(handleArray);
 }
 
 void threadGPUMas(threadPoolConfig *config, int dev, int threadNum, int start, int stop) {
@@ -74,13 +126,13 @@ void threadCPU(threadPoolConfig *config) {
         if (num_thread > 3) num_thread = 3;
 
         // threadArray.push_back(std::move(std::thread(threadGPUMas, bmatC, bmatA, bmatB, num_thread, tasks.begin() + dev * taskLenGPU, tasks.begin() + (dev + 1) * taskLenGPU)));
-        threadArray[dev] = new std::thread(threadGPUMas, config, dev, num_thread, dev * taskLenGPU, (dev + 1) * taskLenGPU);
+        threadArray[dev] = new std::thread(threadGPUMas, config, config->GPUs[dev], num_thread, dev * taskLenGPU, (dev + 1) * taskLenGPU);
     }
     num_thread = config->memMiBs[dev] / mem;
-    if (num_thread > 16) num_thread = 16;
+    if (num_thread > 8) num_thread = 8;
     // threadArray.push_back(std::move(std::thread(threadGPUMas, bmatC, bmatA, bmatB, tasks.begin() + dev * taskLenGPU, tasks.end())));
     printf("ready for threadGPUMas %d\n", dev);
-    threadArray[dev] = new std::thread(threadGPUMas, config, dev, num_thread, dev * taskLenGPU, config->tasks.size());
+    threadArray[dev] = new std::thread(threadGPUMas, config, config->GPUs[dev], num_thread, dev * taskLenGPU, config->tasks.size());
 
     for (dev = 0; dev < config->deviceCount; ++dev) {
         threadArray[dev]->join();

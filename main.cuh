@@ -22,7 +22,7 @@
 #ifndef __EXIT__
 #define __EXIT__
 #define EXIT() {                    \
-    printf("Enter to exit:");      \
+    printf("Enter to exit:");       \
     getchar();                      \
 }
 #endif

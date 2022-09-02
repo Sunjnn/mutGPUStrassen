@@ -1,3 +1,4 @@
+#include <vector>
 #include <deque>
 #include <mutex>
 
@@ -20,10 +21,12 @@ public:
     int blockN;
     std::deque<int*> tasks;
     int deviceCount;
-    float* memMiBs;
+    // float* memMiBs;
+    std::vector<int> GPUs;
+    std::vector<float> memMiBs;
 
-    threadPoolConfig() {}
-    threadPoolConfig(float* C, float* A, float* B, int m, int k, int n, int blockM, int blockK, int blockN);
+    threadPoolConfig();
+    threadPoolConfig(float*, float*, float*, int, int, int, int, int, int, std::vector<int>);
 };
 void threadCPU(threadPoolConfig *config);
 void threadGPUMas(threadPoolConfig *config, int dev, int threadNum, int start, int stop);
