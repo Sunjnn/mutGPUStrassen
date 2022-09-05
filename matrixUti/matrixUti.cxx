@@ -29,10 +29,27 @@ void getSubmatrixPointer(float *A, int mDiv2, int nDiv2, int ld, float *&A_11, f
 }
 
 void matrixAdd(float *C, float *A, float *B, int M, int N, int ldC, int ldA, int ldB) {
+    // for (int j = 0; j < N; ++j) {
+    //     for (int i = 0; i < M; ++i) {
+    //         // C[i + j * ldC] = A[i + j * ldA] + B[i + j * ldB];
+    //         C[MAT_IDX(i, j, ldC)] = A[MAT_IDX(i, j, ldA)] + B[MAT_IDX(i, j, ldB)];
+    //     }
+    // }
+
     for (int j = 0; j < N; ++j) {
-        for (int i = 0; i < M; ++i) {
-            // C[i + j * ldC] = A[i + j * ldA] + B[i + j * ldB];
+        int MDiv8 = M / 8;
+        for (int i = MDiv8 * 8; i < M; ++i) {
             C[MAT_IDX(i, j, ldC)] = A[MAT_IDX(i, j, ldA)] + B[MAT_IDX(i, j, ldB)];
+        }
+        for (int i = 0; i < MDiv8; ++i) {
+            C[MAT_IDX(i * 8, j, ldC)] = A[MAT_IDX(i * 8, j, ldA)] + B[MAT_IDX(i * 8, j, ldB)];
+            C[MAT_IDX(i * 8 + 1, j, ldC)] = A[MAT_IDX(i * 8 + 1, j, ldA)] + B[MAT_IDX(i * 8 + 1, j, ldB)];
+            C[MAT_IDX(i * 8 + 2, j, ldC)] = A[MAT_IDX(i * 8 + 2, j, ldA)] + B[MAT_IDX(i * 8 + 2, j, ldB)];
+            C[MAT_IDX(i * 8 + 3, j, ldC)] = A[MAT_IDX(i * 8 + 3, j, ldA)] + B[MAT_IDX(i * 8 + 3, j, ldB)];
+            C[MAT_IDX(i * 8 + 4, j, ldC)] = A[MAT_IDX(i * 8 + 4, j, ldA)] + B[MAT_IDX(i * 8 + 4, j, ldB)];
+            C[MAT_IDX(i * 8 + 5, j, ldC)] = A[MAT_IDX(i * 8 + 5, j, ldA)] + B[MAT_IDX(i * 8 + 5, j, ldB)];
+            C[MAT_IDX(i * 8 + 6, j, ldC)] = A[MAT_IDX(i * 8 + 6, j, ldA)] + B[MAT_IDX(i * 8 + 6, j, ldB)];
+            C[MAT_IDX(i * 8 + 7, j, ldC)] = A[MAT_IDX(i * 8 + 7, j, ldA)] + B[MAT_IDX(i * 8 + 7, j, ldB)];
         }
     }
 }
@@ -61,7 +78,7 @@ void test(float *A, float *B, int M, int N) {
             float diff = A[MAT_IDX(i, j, M)] - B[MAT_IDX(i, j, M)];
             diff /= A[MAT_IDX(i, j, M)];
             if (diff > 0.001 || diff < -0.001) {
-                printf("wrong result. i:%d j:%d\n", i, j);
+                printf("wrong result. i:%d j:%d %f %f\n", i, j, A[MAT_IDX(i, j, M)], B[MAT_IDX(i, j, M)]);
             }
         }
     }

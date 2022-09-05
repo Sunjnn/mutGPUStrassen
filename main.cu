@@ -29,11 +29,11 @@ int main() {
     cudaEventCreate(&stop);
     float time;
 
-    // cublasHandle_t handle;
-    // cublasCreate(&handle);
+    cublasHandle_t handle;
+    cublasCreate(&handle);
     // cudaStream_t stream;
     // cudaStreamCreate(&stream);
-    // gemmcublas(CTest, A, B, M, K, N, handle);
+    gemmcublas(CTest, A, B, M, K, N, handle);
 
     // // memset(CTest, 0, sizeof(float) * M * N);
 
@@ -92,7 +92,7 @@ int main() {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
     printf("gemmstrassen threadPool time: %f ms\n", time);
-    // test(C, CTest, M, N);
+    test(C, CTest, M, N);
 
     return 0;
 }
