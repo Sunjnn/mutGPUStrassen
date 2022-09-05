@@ -10,4 +10,5 @@ void gemmstrassenNOomp(float *C, float *A, float *B, int m, int k, int n, cublas
 // void gemmstrassen_v3(float *, int, float *, int, float *, int, int);
 // void gemmstrassen_v3(float*, int, float*, int, float*, int, int, cudaStream_t*, cublasHandle_t*);
 // void gemmstrassen_v3(float*, int, float*, int, float*, int, int, cudaStream_t*, cublasHandle_t*, float*, float*);
-void gemmstrassen_v3(float*, int, float*, int, float*, int, int, cudaStream_t*, cublasHandle_t*, float*, float*, float*, float*, float*);
+// void gemmstrassen_v3(float*, int, float*, int, float*, int, int, cudaStream_t*, cublasHandle_t*, float*, float*, float*, float*, float*);
+void gemmstrassen_v3(float*, int, float*, int, float*, int, int, cudaStream_t, cublasHandle_t, float*, float*, float*, float*, float*);

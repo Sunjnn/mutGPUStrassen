@@ -504,7 +504,7 @@ void gemmstrassen_v2(float *C, int ldC, float *A, int ldA, float *B, int ldB, in
     free(streamArray);
 }
 
-void gemmstrassen_v3(float *C, int ldC, float *A, int ldA, float *B, int ldB, int M, cudaStream_t *streamArray, cublasHandle_t *handleArray, float *T1, float *T2, float *d_A, float *d_B, float *d_C) {
+void gemmstrassen_v3(float *C, int ldC, float *A, int ldA, float *B, int ldB, int M, cudaStream_t stream, cublasHandle_t handle, float *T1, float *T2, float *d_A, float *d_B, float *d_C) {
     int Mdiv2 = M / 2;
 
     float *A_11, *A_12, *A_21, *A_22;
@@ -562,95 +562,96 @@ void gemmstrassen_v3(float *C, int ldC, float *A, int ldA, float *B, int ldB, in
     // CHECKCUBLAS(cublasSetMatrixAsync(Mdiv2, Mdiv2, sizeof(float), B_11, ldB, d_B_11, M, streamArray[2]));
 
     // CHECKCUBLAS(cublasSetStream(streamArray[1]));
-    CHECKCUBLAS(cublasSgeam(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_B_22, M, &minusOne, d_B_12, M, T2, Mdiv2));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_B_22, M, &minusOne, d_B_12, M, T2, Mdiv2));
 
     // CHECKCUBLAS(cublasSetStream(streamArray[0]));
-    CHECKCUBLAS(cublasSgeam(handleArray[0], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_A_11, M, &minusOne, d_A_21, M, T1, Mdiv2));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_A_11, M, &minusOne, d_A_21, M, T1, Mdiv2));
 
     // CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
-    CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
-    CHECKCUBLAS(cublasSgemm(handleArray[0], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, T2, Mdiv2, &zero, d_C_21, M));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
+    CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, T2, Mdiv2, &zero, d_C_21, M));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[2]));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[2]));
     // CHECKCUBLAS(cublasSetMatrixAsync(Mdiv2, Mdiv2, sizeof(float), A_12, ldA, d_A_12, M, streamArray[2]));
     // CHECKCUBLAS(cublasSetMatrixAsync(Mdiv2, Mdiv2, sizeof(float), B_21, ldB, d_B_21, M, streamArray[2]));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
-    CHECKCUBLAS(cublasSgeam(handleArray[0], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_A_21, M, &one, d_A_22, M, T1, Mdiv2));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_A_21, M, &one, d_A_22, M, T1, Mdiv2));
 
     // CHECKCUBLAS(cublasSetStream(streamArray[1]));
-    CHECKCUBLAS(cublasSgeam(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_B_12, M, &minusOne, d_B_11, M, T2, Mdiv2));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_B_12, M, &minusOne, d_B_11, M, T2, Mdiv2));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
-    CHECKCUBLAS(cublasSgemm(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, T2, Mdiv2, &zero, d_C_22, M));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
+    CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, T2, Mdiv2, &zero, d_C_22, M));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
-    CHECKCUBLAS(cublasSgeam(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_B_22, M, &minusOne, T2, Mdiv2, T2, Mdiv2));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_B_22, M, &minusOne, T2, Mdiv2, T2, Mdiv2));
 
     // CHECKCUBLAS(cublasSetStream(streamArray[0]));
-    CHECKCUBLAS(cublasSgeam(handleArray[0], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, T1, Mdiv2, &minusOne, d_A_11, M, T1, Mdiv2));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, T1, Mdiv2, &minusOne, d_A_11, M, T1, Mdiv2));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
-    CHECKCUBLAS(cublasSgemm(handleArray[0], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, T2, Mdiv2, &zero, d_C_11, M));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
+    CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, T2, Mdiv2, &zero, d_C_11, M));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[2]));
-    CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
-    CHECKCUBLAS(cublasSgeam(handleArray[0], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_A_12, M, &minusOne, T1, Mdiv2, T1, Mdiv2));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[2]));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_A_12, M, &minusOne, T1, Mdiv2, T1, Mdiv2));
 
     // CHECKCUBLAS(cublasSetStream(streamArray[2]));
-    CHECKCUBLAS(cublasSgeam(handleArray[2], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, T2, Mdiv2, &minusOne, d_B_21, M, T2, Mdiv2));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, T2, Mdiv2, &minusOne, d_B_21, M, T2, Mdiv2));
 
     // CHECKCUBLAS(cublasSetStream(streamArray[0]));
-    CHECKCUBLAS(cublasSgemm(handleArray[0], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, d_B_22, M, &zero, d_C_12, M));
+    CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, d_B_22, M, &zero, d_C_12, M));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
-    CHECKCUBLAS(cublasSgeam(handleArray[0], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_12, M, &one, d_C_22, M, d_C_12, M));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_12, M, &one, d_C_22, M, d_C_12, M));
 
     // CHECKCUBLAS(cublasSetStream(streamArray[1]));
-    CHECKCUBLAS(cublasSgemm(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, d_A_11, M, d_B_11, M, &zero, T1, Mdiv2));
-    CHECKCUBLAS(cublasSgeam(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, T1, Mdiv2, d_C_11, M));
+    CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, d_A_11, M, d_B_11, M, &zero, T1, Mdiv2));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, T1, Mdiv2, d_C_11, M));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
-    CHECKCUBLAS(cublasSgeam(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, d_C_12, M, d_C_12, M));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, d_C_12, M, d_C_12, M));
 
     // CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
     // CHECKCUDA(cudaStreamSynchronize(streamArray[2]));
     // CHECKCUBLAS(cublasGetMatrixAsync(Mdiv2, Mdiv2, sizeof(float), d_C_12, M, C_12, ldC, streamArray[2]));
 
-    CHECKCUBLAS(cublasSgeam(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, d_C_21, M, d_C_11, M));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, d_C_21, M, d_C_11, M));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
-    CHECKCUBLAS(cublasSgemm(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, d_A_22, M, T2, Mdiv2, &zero, d_C_21, M));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
+    CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, d_A_22, M, T2, Mdiv2, &zero, d_C_21, M));
 
     // CHECKCUBLAS(cublasSetStream(streamArray[0]));
-    CHECKCUBLAS(cublasSgeam(handleArray[0], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, d_C_22, M, d_C_22, M));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, d_C_22, M, d_C_22, M));
 
     // CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
     // CHECKCUBLAS(cublasGetMatrixAsync(Mdiv2, Mdiv2, sizeof(float), d_C_22, M, C_22, ldC, streamArray[0]));
 
     // CHECKCUBLAS(cublasSetStream(streamArray[1]));
-    CHECKCUBLAS(cublasSgeam(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &minusOne, d_C_21, M, d_C_21, M));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &minusOne, d_C_21, M, d_C_21, M));
 
     // CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
     // CHECKCUBLAS(cublasGetMatrixAsync(Mdiv2, Mdiv2, sizeof(float), d_C_21, M, C_21, ldC, streamArray[2]));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
-    CHECKCUBLAS(cublasSgemm(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, d_A_12, M, d_B_21, M, &zero, d_C_11, M));
-    CHECKCUBLAS(cublasSgeam(handleArray[1], CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, T1, Mdiv2, d_C_11, M));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
+    CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, d_A_12, M, d_B_21, M, &zero, d_C_11, M));
+    CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, T1, Mdiv2, d_C_11, M));
 
     // CHECKCUBLAS(cublasGetMatrixAsync(Mdiv2, Mdiv2, sizeof(float), d_C_11, M, C_11, ldC, streamArray[1]));
-    CHECKCUBLAS(cublasGetMatrixAsync(M, M, sizeof(float), d_C, M, C, ldC, streamArray[1]));
+    CHECKCUBLAS(cublasGetMatrixAsync(M, M, sizeof(float), d_C, M, C, ldC, stream));
 
+    CHECKCUDA(cudaStreamSynchronize(stream));
     // CHECKCUDA(cudaFreeAsync(d_A, streamArray[0]));
     // CHECKCUDA(cudaFreeAsync(d_B, streamArray[1]));
     // CHECKCUDA(cudaFreeAsync(T1, streamArray[0]));
     // CHECKCUDA(cudaFreeAsync(T2, streamArray[1]));
 
-    CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
-    CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[0]));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[1]));
 
     // CHECKCUDA(cudaFreeAsync(d_C, streamArray[2]));
-    CHECKCUDA(cudaStreamSynchronize(streamArray[2]));
+    // CHECKCUDA(cudaStreamSynchronize(streamArray[2]));
 
     // CHECKCUDA(cudaStreamDestroy(stream1));
     // CHECKCUDA(cudaStreamDestroy(stream2));

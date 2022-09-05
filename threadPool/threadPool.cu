@@ -42,38 +42,43 @@ threadPoolConfig::threadPoolConfig(float* C, float* A, float* B, int M, int K, i
 
 void threadGPUSub(threadPoolConfig *config, int start, int stop) {
     float *CTmp = (float*)malloc(sizeof(float) * config->blockM * config->blockN);
-    cudaStream_t *streamArray = (cudaStream_t*)malloc(sizeof(cudaStream_t) * 3);
-    cublasHandle_t *handleArray = (cublasHandle_t*)malloc(sizeof(cublasHandle_t) * 3);
-    for (int i = 0; i < 3; ++i) {
-        CHECKCUDA(cudaStreamCreate(streamArray + i));
-        CHECKCUBLAS(cublasCreate(handleArray + i));
-        CHECKCUBLAS(cublasSetStream(handleArray[i], streamArray[i]));
-    }
+    // cudaStream_t *streamArray = (cudaStream_t*)malloc(sizeof(cudaStream_t) * 3);
+    // cublasHandle_t *handleArray = (cublasHandle_t*)malloc(sizeof(cublasHandle_t) * 3);
+    cudaStream_t stream;
+    CHECKCUDA(cudaStreamCreate(&stream));
+    cublasHandle_t handle;
+    CHECKCUBLAS(cublasCreate(&handle));
+    CHECKCUBLAS(cublasSetStream(handle, stream));
+    // for (int i = 0; i < 3; ++i) {
+    //     CHECKCUDA(cudaStreamCreate(streamArray + i));
+    //     CHECKCUBLAS(cublasCreate(handleArray + i));
+    //     CHECKCUBLAS(cublasSetStream(handleArray[i], streamArray[i]));
+    // }
 
     float *T1 = nullptr;
-    CHECKCUDA(cudaMallocAsync(&T1, sizeof(float) * config->blockM * config->blockM, streamArray[0]));
+    CHECKCUDA(cudaMallocAsync(&T1, sizeof(float) * config->blockM * config->blockM, stream));
     float *T2 = nullptr;
-    CHECKCUDA(cudaMallocAsync(&T2, sizeof(float) * config->blockM * config->blockM, streamArray[1]));
+    CHECKCUDA(cudaMallocAsync(&T2, sizeof(float) * config->blockM * config->blockM, stream));
 
     float *d_A = nullptr;
-    CHECKCUDA(cudaMallocAsync(&d_A, sizeof(float) * config->blockM * config->blockM, streamArray[0]))
+    CHECKCUDA(cudaMallocAsync(&d_A, sizeof(float) * config->blockM * config->blockM, stream))
 
     float *d_B = nullptr;
-    CHECKCUDA(cudaMallocAsync(&d_B, sizeof(float) * config->blockM * config->blockM, streamArray[1]));
+    CHECKCUDA(cudaMallocAsync(&d_B, sizeof(float) * config->blockM * config->blockM, stream));
 
     float *d_C = nullptr;
-    CHECKCUDA(cudaMallocAsync(&d_C, sizeof(float) * config->blockM * config->blockM, streamArray[2]));
+    CHECKCUDA(cudaMallocAsync(&d_C, sizeof(float) * config->blockM * config->blockM, stream));
 
     for (int k = 0; k < config->bmatA->dimN; ++k) {
         for (int idx = start; idx < stop; ++idx) {
             int i = config->tasks[idx][0];
             int j = config->tasks[idx][1];
-            CHECKCUBLAS(cublasSetMatrixAsync(config->blockM, config->blockM, sizeof(float), config->bmatA->getBlockMatrix(i, k), config->m, d_A, config->blockM, streamArray[0]));
+            CHECKCUBLAS(cublasSetMatrixAsync(config->blockM, config->blockM, sizeof(float), config->bmatA->getBlockMatrix(i, k), config->m, d_A, config->blockM, stream));
             if (idx == start || config->tasks[idx][1] != config->tasks[idx - 1][1]) {
                 // printf("HTD: i=%d, j=%d, k=%d\n", i, j, k);
-                CHECKCUBLAS(cublasSetMatrixAsync(config->blockM, config->blockM, sizeof(float), config->bmatB->getBlockMatrix(k, j), config->k, d_B, config->blockM, streamArray[1]));
+                CHECKCUBLAS(cublasSetMatrixAsync(config->blockM, config->blockM, sizeof(float), config->bmatB->getBlockMatrix(k, j), config->k, d_B, config->blockM, stream));
             }
-            gemmstrassen_v3(CTmp, config->blockM, config->bmatA->getBlockMatrix(i, k), config->m, config->bmatB->getBlockMatrix(k, j), config->k, config->blockM, streamArray, handleArray, T1, T2, d_A, d_B, d_C);
+            gemmstrassen_v3(CTmp, config->blockM, config->bmatA->getBlockMatrix(i, k), config->m, config->bmatB->getBlockMatrix(k, j), config->k, config->blockM, stream, handle, T1, T2, d_A, d_B, d_C);
             matrixAdd(config->bmatC->getBlockMatrix(i, j), config->bmatC->getBlockMatrix(i, j), CTmp, config->blockM, config->blockN, config->m, config->m, config->blockM);
         }
     }
@@ -89,18 +94,18 @@ void threadGPUSub(threadPoolConfig *config, int start, int stop) {
     //         matrixAdd(config->bmatC->getBlockMatrix(i, j), config->bmatC->getBlockMatrix(i, j), CTmp, config->blockM, config->blockN, config->m, config->m, config->blockM);
     //     }
     // }
-    CHECKCUDA(cudaFreeAsync(T1, streamArray[0]));
-    CHECKCUDA(cudaFreeAsync(T2, streamArray[1]));
-    CHECKCUDA(cudaFreeAsync(d_A, streamArray[0]));
-    CHECKCUDA(cudaFreeAsync(d_B, streamArray[1]));
-    CHECKCUDA(cudaFreeAsync(d_C, streamArray[2]));
+    CHECKCUDA(cudaFreeAsync(T1, stream));
+    CHECKCUDA(cudaFreeAsync(T2, stream));
+    CHECKCUDA(cudaFreeAsync(d_A, stream));
+    CHECKCUDA(cudaFreeAsync(d_B, stream));
+    CHECKCUDA(cudaFreeAsync(d_C, stream));
     free(CTmp);
-    for (int i = 0; i < 3; ++i) {
-        CHECKCUDA(cudaStreamDestroy(streamArray[i]));
-        CHECKCUBLAS(cublasDestroy(handleArray[i]));
-    }
-    free(streamArray);
-    free(handleArray);
+    // for (int i = 0; i < 3; ++i) {
+    //     CHECKCUDA(cudaStreamDestroy(stream));
+    //     CHECKCUBLAS(cublasDestroy(handle));
+    // }
+    free(stream);
+    free(handle);
 }
 
 void threadGPUMas(threadPoolConfig *config, int dev, int threadNum, int start, int stop) {
