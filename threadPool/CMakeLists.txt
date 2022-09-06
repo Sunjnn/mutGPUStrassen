@@ -1,4 +1,4 @@
-add_library(threadPool threadPool.cu)
+add_library(threadPool threadPool.cu matrixaddThreads.cxx)
 
 target_include_directories(threadPool
     PUBLIC "${PROJECT_SOURCE_DIR}/matrixUti" "${PROJECT_SOURCE_DIR}/cudaUti")

@@ -31,11 +31,11 @@ int main() {
 
     cublasHandle_t handle;
     cublasCreate(&handle);
-    // cudaStream_t stream;
-    // cudaStreamCreate(&stream);
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
     gemmcublas(CTest, A, B, M, K, N, handle);
 
-    // // memset(CTest, 0, sizeof(float) * M * N);
+    // memset(CTest, 0, sizeof(float) * M * N);
 
     // cudaDeviceSynchronize();
     // cudaEventRecord(start, 0);
