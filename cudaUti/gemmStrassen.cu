@@ -687,7 +687,7 @@ void gemmstrassen_v4(float *C, int ldC, float *A, int ldA, float *B, int ldB, in
     float minusOne = -1.0f;
     float zero = 0.0f;
 
-    dim3 mulGrid(Mdiv2 / 64, Mdiv2 / 64), mulBlock(64, 8);
+    dim3 mulGrid(Mdiv2 / 64, Mdiv2 / 16), mulBlock(32, 2);
     dim3 addGrid(Mdiv2 / 32, Mdiv2 / 32), addBlock(32, 32);
 
     // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_B_22, M, &minusOne, d_B_12, M, T2, Mdiv2));

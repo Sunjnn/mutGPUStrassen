@@ -84,54 +84,75 @@ float getdeviceprop(int dev) {
     return mem;
 }
 
-// block size 64, 8
+// block size 32, 2
 __global__ void GPU8_mul(float *d_C, int ldC, float *d_A, int ldA, float *d_B, int ldB) {
-    __shared__ float as[64][64];
-    __shared__ float bs[8][64];
+    __shared__ float bs[16][32];
 
-    float cr[8] = {0};
+    float c[16] = {0};
+    float a;
 
     int blockXTimes64 = blockIdx.x * 64;
-    int blockYTimes64 = blockIdx.y * 64;
-    int threadYTimes8 = threadIdx.y * 8;
+    int blockYTimes16 = blockIdx.y * 16;
+    int tid = threadIdx.y * 32 + threadIdx.x;
 
-    int cNext = (blockYTimes64 + threadYTimes8) * ldC + blockXTimes64 + threadIdx.x;
-    int aNext = threadIdx.y * ldA + blockXTimes64 + threadIdx.x;
-    int bNext = (blockYTimes64 + threadYTimes8) * ldB + threadIdx.x;
+    int cNext = blockYTimes16 * ldC + blockXTimes64 + tid;
+    int aNext = blockXTimes64 + tid;
+    int bNext = (blockYTimes16 + threadIdx.y) * ldB + threadIdx.x;
 
     d_C += cNext;
     d_A += aNext;
     d_B += bNext;
     float *d_BTmp = d_B;
 
-    int nDiv64 = ldB / 64;
-    int ldAtimes8 = ldA * 8;
+    int nDiv16 = ldB / 32;
 
-    for (int i = 0; i < nDiv64; ++i) {
-        as[threadIdx.y][threadIdx.x] = d_A[0];
-        d_A += ldAtimes8;
-        as[threadIdx.y + 8][threadIdx.x] = d_A[0];
-        d_A += ldAtimes8;
-        as[threadIdx.y + 16][threadIdx.x] = d_A[0];
-        d_A += ldAtimes8;
-        as[threadIdx.y + 24][threadIdx.x] = d_A[0];
-        d_A += ldAtimes8;
+    for (int i = 0; i < nDiv16; ++i) {
+        bs[threadIdx.y][threadIdx.x] = d_BTmp[0];
+        d_BTmp += 2 * ldB;
+        bs[threadIdx.y + 2][threadIdx.x] = d_BTmp[0];
+        d_BTmp += 2 * ldB;
+        bs[threadIdx.y + 4][threadIdx.x] = d_BTmp[0];
+        d_BTmp += 2 * ldB;
+        bs[threadIdx.y + 6][threadIdx.x] = d_BTmp[0];
+        d_BTmp += 2 * ldB;
+        bs[threadIdx.y + 8][threadIdx.x] = d_BTmp[0];
+        d_BTmp += 2 * ldB;
+        bs[threadIdx.y + 10][threadIdx.x] = d_BTmp[0];
+        d_BTmp += 2 * ldB;
+        bs[threadIdx.y + 12][threadIdx.x] = d_BTmp[0];
+        d_BTmp += 2 * ldB;
+        bs[threadIdx.y + 14][threadIdx.x] = d_BTmp[0];
+        d_BTmp += 2 * ldB;
 
-        for (int j = 0; j < 8; ++j) {
-            bs[threadIdx.y][threadIdx.x] = d_BTmp[0];
-            d_BTmp += ldB;
-            __syncthreads();
-            for (int k = 0; k < 64; ++k) {
-                cr[j] = as[k][threadIdx.x] * bs[threadIdx.y][k];
-            }
+        for (int j = 0; j < 32; ++j) {
+            a = d_A[0];
+            c[0] += a * bs[0][j];
+            c[1] += a * bs[1][j];
+            c[2] += a * bs[2][j];
+            c[3] += a * bs[3][j];
+            c[4] += a * bs[4][j];
+            c[5] += a * bs[5][j];
+            c[6] += a * bs[6][j];
+            c[7] += a * bs[7][j];
+            c[8] += a * bs[8][j];
+            c[9] += a * bs[9][j];
+            c[10] += a * bs[10][j];
+            c[11] += a * bs[11][j];
+            c[12] += a * bs[12][j];
+            c[13] += a * bs[13][j];
+            c[14] += a * bs[14][j];
+            c[15] += a * bs[15][j];
+
+            d_A += ldA;
         }
 
-        d_B += 64;
+        d_B += 32;
         d_BTmp = d_B;
     }
 
-    for (int i = 0; i < 8; ++i) {
-        d_C[i] = cr[i];
+    for (int i = 0; i < 16; ++i) {
+        d_C[0] = c[i];
+        d_C += ldC;
     }
 }
 
