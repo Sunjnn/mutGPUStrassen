@@ -83,3 +83,78 @@ float getdeviceprop(int dev) {
 
     return mem;
 }
+
+// block size 64, 8
+__global__ void GPU8_mul(float *d_C, int ldC, float *d_A, int ldA, float *d_B, int ldB) {
+    __shared__ float as[64][64];
+    __shared__ float bs[8][64];
+
+    float cr[8] = {0};
+
+    int blockXTimes64 = blockIdx.x * 64;
+    int blockYTimes64 = blockIdx.y * 64;
+    int threadYTimes8 = threadIdx.y * 8;
+
+    int cNext = (blockYTimes64 + threadYTimes8) * ldC + blockXTimes64 + threadIdx.x;
+    int aNext = threadIdx.y * ldA + blockXTimes64 + threadIdx.x;
+    int bNext = (blockYTimes64 + threadYTimes8) * ldB + threadIdx.x;
+
+    d_C += cNext;
+    d_A += aNext;
+    d_B += bNext;
+    float *d_BTmp = d_B;
+
+    int nDiv64 = ldB / 64;
+    int ldAtimes8 = ldA * 8;
+
+    for (int i = 0; i < nDiv64; ++i) {
+        as[threadIdx.y][threadIdx.x] = d_A[0];
+        d_A += ldAtimes8;
+        as[threadIdx.y + 8][threadIdx.x] = d_A[0];
+        d_A += ldAtimes8;
+        as[threadIdx.y + 16][threadIdx.x] = d_A[0];
+        d_A += ldAtimes8;
+        as[threadIdx.y + 24][threadIdx.x] = d_A[0];
+        d_A += ldAtimes8;
+
+        for (int j = 0; j < 8; ++j) {
+            bs[threadIdx.y][threadIdx.x] = d_BTmp[0];
+            d_BTmp += ldB;
+            __syncthreads();
+            for (int k = 0; k < 64; ++k) {
+                cr[j] = as[k][threadIdx.x] * bs[threadIdx.y][k];
+            }
+        }
+
+        d_B += 64;
+        d_BTmp = d_B;
+    }
+
+    for (int i = 0; i < 8; ++i) {
+        d_C[i] = cr[i];
+    }
+}
+
+// block size 32, 32
+__global__ void GPU8_add(float *d_C, int ldC, float *d_A, int ldA, float *d_B, int ldB, int M, int N) {
+    int y = 32 * blockIdx.y + threadIdx.y;
+    int x = 32 * blockIdx.x + threadIdx.x;
+    int idxC = y * ldC + x;
+    int idxA = y * ldA + x;
+    int idxB = y * ldB + x;
+    if (x < M && y < N) {
+        d_C[idxC] = d_A[idxA] + d_B[idxB];
+    }
+}
+
+// block size 32, 32
+__global__ void GPU8_sub(float *d_C, int ldC, float *d_A, int ldA, float *d_B, int ldB, int M, int N) {
+    int y = 32 * blockIdx.y + threadIdx.y;
+    int x = 32 * blockIdx.x + threadIdx.x;
+    int idxC = y * ldC + x;
+    int idxA = y * ldA + x;
+    int idxB = y * ldB + x;
+    if (x < M && y < N) {
+        d_C[idxC] = d_A[idxA] - d_B[idxB];
+    }
+}

@@ -84,7 +84,8 @@ void threadGPUSub(threadPoolConfig *config, int start, int stop) {
             int idxCTmp = threads.getCTmp();
             // printf("start: %d, idxCTmp: %d\n", start, idxCTmp);
             float *CTmp = threads.CTmp[idxCTmp];
-            gemmstrassen_v3(CTmp, config->blockM, config->bmatA->getBlockMatrix(i, k), config->m, config->bmatB->getBlockMatrix(k, j), config->k, config->blockM, stream, handle, T1, T2, d_A, d_B, d_C);
+            // gemmstrassen_v3(CTmp, config->blockM, config->bmatA->getBlockMatrix(i, k), config->m, config->bmatB->getBlockMatrix(k, j), config->k, config->blockM, stream, handle, T1, T2, d_A, d_B, d_C);
+            gemmstrassen_v4(CTmp, config->blockM, config->bmatA->getBlockMatrix(i, k), config->m, config->bmatB->getBlockMatrix(k, j), config->k, config->blockM, stream, T1, T2, d_A, d_B, d_C);
             // matrixAdd(config->bmatC->getBlockMatrix(i, j), config->bmatC->getBlockMatrix(i, j), CTmp, config->blockM, config->blockN, config->m, config->m, config->blockM);
             threads.addTask(config->bmatC->getBlockMatrix(i, j), idxCTmp);
         }

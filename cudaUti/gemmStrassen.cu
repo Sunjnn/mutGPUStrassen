@@ -662,6 +662,107 @@ void gemmstrassen_v3(float *C, int ldC, float *A, int ldA, float *B, int ldB, in
     // CHECKCUBLAS(cublasDestroy(handle3));
 }
 
+void gemmstrassen_v4(float *C, int ldC, float *A, int ldA, float *B, int ldB, int M, cudaStream_t stream, float *T1, float *T2, float *d_A, float *d_B, float *d_C) {
+    int Mdiv2 = M / 2;
+
+    float *A_11, *A_12, *A_21, *A_22;
+    getSubmatrixPointer(A, Mdiv2, Mdiv2, ldA, A_11, A_12, A_21, A_22);
+
+    float *B_11, *B_12, *B_21, *B_22;
+    getSubmatrixPointer(B, Mdiv2, Mdiv2, ldB, B_11, B_12, B_21, B_22);
+
+    float *C_11, *C_12, *C_21, *C_22;
+    getSubmatrixPointer(C, Mdiv2, Mdiv2, ldC, C_11, C_12, C_21, C_22);
+
+    float *d_A_11, *d_A_12, *d_A_21, *d_A_22;
+    getSubmatrixPointer(d_A, Mdiv2, Mdiv2, M, d_A_11, d_A_12, d_A_21, d_A_22);
+
+    float *d_B_11, *d_B_12, *d_B_21, *d_B_22;
+    getSubmatrixPointer(d_B, Mdiv2, Mdiv2, M, d_B_11, d_B_12, d_B_21, d_B_22);
+
+    float *d_C_11, *d_C_12, *d_C_21, *d_C_22;
+    getSubmatrixPointer(d_C, Mdiv2, Mdiv2, M, d_C_11, d_C_12, d_C_21, d_C_22);
+
+    float one = 1.0f;
+    float minusOne = -1.0f;
+    float zero = 0.0f;
+
+    dim3 mulGrid(Mdiv2 / 64, Mdiv2 / 64), mulBlock(64, 8);
+    dim3 addGrid(Mdiv2 / 32, Mdiv2 / 32), addBlock(32, 32);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_B_22, M, &minusOne, d_B_12, M, T2, Mdiv2));
+    GPU8_sub<<<addGrid, addBlock, 0, stream>>>(T2, Mdiv2, d_B_22, M, d_B_12, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_A_11, M, &minusOne, d_A_21, M, T1, Mdiv2));
+    GPU8_sub<<<addGrid, addBlock, 0, stream>>>(T1, Mdiv2, d_A_11, M, d_A_21, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, T2, Mdiv2, &zero, d_C_21, M));
+    GPU8_mul<<<mulGrid, mulBlock, 0, stream>>>(d_C_21, M, T1, Mdiv2, T2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_A_21, M, &one, d_A_22, M, T1, Mdiv2));
+    GPU8_add<<<addGrid, addBlock, 0, stream>>>(T1, Mdiv2, d_A_21, M, d_A_22, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_B_12, M, &minusOne, d_B_11, M, T2, Mdiv2));
+    GPU8_sub<<<addGrid, addBlock, 0, stream>>>(T2, Mdiv2, d_B_12, M, d_B_11, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, T2, Mdiv2, &zero, d_C_22, M));
+    GPU8_mul<<<mulGrid, mulBlock, 0, stream>>>(d_C_22, M, T1, Mdiv2, T2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_B_22, M, &minusOne, T2, Mdiv2, T2, Mdiv2));
+    GPU8_sub<<<addGrid, addBlock, 0, stream>>>(T2, Mdiv2, d_B_22, M, T2, Mdiv2, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, T1, Mdiv2, &minusOne, d_A_11, M, T1, Mdiv2));
+    GPU8_sub<<<addGrid, addBlock, 0, stream>>>(T1, Mdiv2, T1, Mdiv2, d_A_11, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, T2, Mdiv2, &zero, d_C_11, M));
+    GPU8_mul<<<mulGrid, mulBlock, 0, stream>>>(d_C_11, M, T1,Mdiv2, T2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_A_12, M, &minusOne, T1, Mdiv2, T1, Mdiv2));
+    GPU8_sub<<<addGrid, addBlock, 0, stream>>>(T1, Mdiv2, d_A_12, M, T1, Mdiv2, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, T2, Mdiv2, &minusOne, d_B_21, M, T2, Mdiv2));
+    GPU8_sub<<<addGrid, addBlock, 0, stream>>>(T2, Mdiv2, T2, Mdiv2, d_B_21, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, T1, Mdiv2, d_B_22, M, &zero, d_C_12, M));
+    GPU8_mul<<<mulGrid, mulBlock, 0, stream>>>(d_C_12, M, T1, Mdiv2, d_B_22, M);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_12, M, &one, d_C_22, M, d_C_12, M));
+    GPU8_add<<<addGrid, addBlock, 0, stream>>>(d_C_12, M, d_C_12, M, d_C_22, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, d_A_11, M, d_B_11, M, &zero, T1, Mdiv2));
+    GPU8_mul<<<mulGrid, mulBlock, 0, stream>>>(T1, Mdiv2, d_A_11, M, d_B_11, M);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, T1, Mdiv2, d_C_11, M));
+    GPU8_add<<<addGrid, addBlock, 0, stream>>>(d_C_11, M, d_C_11, M, T1, Mdiv2, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, d_C_12, M, d_C_12, M));
+    GPU8_add<<<addGrid, addBlock, 0, stream>>>(d_C_12, M, d_C_11, M, d_C_12, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, d_C_21, M, d_C_11, M));
+    GPU8_add<<<addGrid, addBlock, 0, stream>>>(d_C_11, M, d_C_11, M, d_C_21, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, d_A_22, M, T2, Mdiv2, &zero, d_C_21, M));
+    GPU8_mul<<<mulGrid, mulBlock, 0, stream>>>(d_C_21, M, d_A_22, M, T2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, d_C_22, M, d_C_22, M));
+    GPU8_add<<<addGrid, addBlock, 0, stream>>>(d_C_22, M, d_C_11, M, d_C_22, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &minusOne, d_C_21, M, d_C_21, M));
+    GPU8_sub<<<addGrid, addBlock, 0, stream>>>(d_C_21, M, d_C_11, M, d_C_21, M, Mdiv2, Mdiv2);
+
+    // CHECKCUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, Mdiv2, &one, d_A_12, M, d_B_21, M, &zero, d_C_11, M));
+    GPU8_mul<<<mulGrid, mulBlock, 0, stream>>>(d_C_11, M, d_A_12, M, d_B_21, M);
+
+    // CHECKCUBLAS(cublasSgeam(handle, CUBLAS_OP_N, CUBLAS_OP_N, Mdiv2, Mdiv2, &one, d_C_11, M, &one, T1, Mdiv2, d_C_11, M));
+    GPU8_add<<<addGrid, addBlock, 0, stream>>>(d_C_11, M, d_C_11, M, T1, Mdiv2, Mdiv2, Mdiv2);
+
+    // printf("here\n");
+    // fflush(stdout);
+    CHECKCUBLAS(cublasGetMatrixAsync(M, M, sizeof(float), d_C, M, C, ldC, stream));
+
+    CHECKCUDA(cudaStreamSynchronize(stream));
+}
+
 // gemm by strassen algorithm. compute C = AB.
 // C, A and B must be consecutive.
 void gemmstrassenNOomp(float *C, float *A, float *B, int m, int k, int n, cublasHandle_t handle) {
