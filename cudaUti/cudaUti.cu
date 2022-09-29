@@ -84,20 +84,21 @@ float getdeviceprop(int dev) {
     return mem;
 }
 
-// block size 32, 2
+// block size 32, 8
+// compute 256, 8 of block C
 __global__ void GPU8_mul(float *d_C, int ldC, float *d_A, int ldA, float *d_B, int ldB) {
-    __shared__ float bs[16][32];
+    __shared__ float bs[8][32];
 
-    float c[16] = {0};
+    float c[8] = {0};
     float a;
 
-    int blockXTimes64 = blockIdx.x * 64;
-    int blockYTimes16 = blockIdx.y * 16;
+    int blockXTimes256 = blockIdx.x * 256;
+    int blockYTimes8 = blockIdx.y * 8;
     int tid = threadIdx.y * 32 + threadIdx.x;
 
-    int cNext = blockYTimes16 * ldC + blockXTimes64 + tid;
-    int aNext = blockXTimes64 + tid;
-    int bNext = (blockYTimes16 + threadIdx.y) * ldB + threadIdx.x;
+    int cNext = blockYTimes8 * ldC + blockXTimes256 + tid;
+    int aNext = blockXTimes256 + tid;
+    int bNext = (blockYTimes8 + threadIdx.y) * ldB + threadIdx.x;
 
     d_C += cNext;
     d_A += aNext;
@@ -107,22 +108,8 @@ __global__ void GPU8_mul(float *d_C, int ldC, float *d_A, int ldA, float *d_B, i
     int nDiv16 = ldB / 32;
 
     for (int i = 0; i < nDiv16; ++i) {
-        bs[threadIdx.y][threadIdx.x] = d_BTmp[0];
-        d_BTmp += 2 * ldB;
-        bs[threadIdx.y + 2][threadIdx.x] = d_BTmp[0];
-        d_BTmp += 2 * ldB;
-        bs[threadIdx.y + 4][threadIdx.x] = d_BTmp[0];
-        d_BTmp += 2 * ldB;
-        bs[threadIdx.y + 6][threadIdx.x] = d_BTmp[0];
-        d_BTmp += 2 * ldB;
-        bs[threadIdx.y + 8][threadIdx.x] = d_BTmp[0];
-        d_BTmp += 2 * ldB;
-        bs[threadIdx.y + 10][threadIdx.x] = d_BTmp[0];
-        d_BTmp += 2 * ldB;
-        bs[threadIdx.y + 12][threadIdx.x] = d_BTmp[0];
-        d_BTmp += 2 * ldB;
-        bs[threadIdx.y + 14][threadIdx.x] = d_BTmp[0];
-        d_BTmp += 2 * ldB;
+        bs[threadIdx.y][threadIdx.x] = d_B[0];
+        __syncthreads();
 
         for (int j = 0; j < 32; ++j) {
             a = d_A[0];
@@ -134,14 +121,6 @@ __global__ void GPU8_mul(float *d_C, int ldC, float *d_A, int ldA, float *d_B, i
             c[5] += a * bs[5][j];
             c[6] += a * bs[6][j];
             c[7] += a * bs[7][j];
-            c[8] += a * bs[8][j];
-            c[9] += a * bs[9][j];
-            c[10] += a * bs[10][j];
-            c[11] += a * bs[11][j];
-            c[12] += a * bs[12][j];
-            c[13] += a * bs[13][j];
-            c[14] += a * bs[14][j];
-            c[15] += a * bs[15][j];
 
             d_A += ldA;
         }
@@ -150,10 +129,14 @@ __global__ void GPU8_mul(float *d_C, int ldC, float *d_A, int ldA, float *d_B, i
         d_BTmp = d_B;
     }
 
-    for (int i = 0; i < 16; ++i) {
-        d_C[0] = c[i];
-        d_C += ldC;
-    }
+    d_C[0] = c[0];
+    d_C[ldC] = c[1];
+    d_C[ldC * 2] = c[2];
+    d_C[ldC * 3] = c[3];
+    d_C[ldC * 4] = c[4];
+    d_C[ldC * 5] = c[5];
+    d_C[ldC * 6] = c[6];
+    d_C[ldC * 7] = c[7];
 }
 
 // block size 32, 32
